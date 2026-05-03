@@ -47,7 +47,7 @@ typedef struct mdString {
     size_t  capacity;
 } mdString;
 
-mdString mds_init   (const char*);
+mdString mds_string   (const char*);
 void     mds_resize (mdString*, const size_t);
 void     mds_set    (mdString*, const char*);
 char*    mds_get    (mdString);
@@ -56,13 +56,15 @@ mdString mds_concat (mdString*, const char*);
 size_t   mds_size     (const mdString);
 size_t   mds_capacity (const mdString);
 
+mdString mds_from_file(const char*);
+
 void     mds_free   (mdString*);
 
 #endif // MDS_H
 
 #ifdef MDS_IMPLEMENTATION
 
-mdString mds_init(const char* cstr) {
+mdString mds_string(const char* cstr) {
     mdString str;
 
     size_t len = strlen(cstr);
@@ -114,6 +116,33 @@ size_t mds_size (const mdString str) {
 
 size_t mds_capacity(const mdString str) {
     return str.capacity;
+}
+
+// TODO: put error checking
+mdString mds_from_file(const char* path) {
+    char* buffer = 0;
+    long length;
+    FILE * f = fopen (path, "rb");
+
+    if (f)
+    {
+        fseek (f, 0, SEEK_END);
+        length = ftell(f);
+
+        fseek (f, 0, SEEK_SET);
+        buffer = MDS_ALLOC(sizeof(char) * (length + 1));
+        if (buffer) {
+            fread (buffer, 1, length, f);
+        }
+        buffer[length] = '\0';
+        fclose (f);
+    }
+
+    mdString str;
+    str.data = buffer;
+    str.size = length;
+    str.capacity = length;
+    return str;
 }
 
 mdString mds_concat(mdString *str, const char* cstr) {
