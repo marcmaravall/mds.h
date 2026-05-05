@@ -30,6 +30,7 @@ SOFTWARE.
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 
 #ifndef MDS_ALLOC
 #   define MDS_ALLOC   malloc
@@ -47,7 +48,7 @@ typedef struct mdString {
     size_t  capacity;
 } mdString;
 
-mdString mds_string   (const char*);
+mdString mds_new    (const char*);
 void     mds_resize (mdString*, const size_t);
 void     mds_set    (mdString*, const char*);
 char*    mds_get    (mdString);
@@ -55,6 +56,14 @@ mdString mds_concat (mdString*, const char*);
 
 size_t   mds_size     (const mdString);
 size_t   mds_capacity (const mdString);
+
+char mds_front (const mdString);
+char mds_back  (const mdString);
+
+int mds_sscanf(const mdString,  const char*, ...);
+
+int mds_format(mdString*, const char*, ...);
+mdString mds_new_formatted (const char*, ...);
 
 mdString mds_from_file(const char*);
 
@@ -64,7 +73,7 @@ void     mds_free   (mdString*);
 
 #ifdef MDS_IMPLEMENTATION
 
-mdString mds_string(const char* cstr) {
+mdString mds_new(const char* cstr) {
     mdString str;
 
     size_t len = strlen(cstr);
@@ -116,6 +125,83 @@ size_t mds_size (const mdString str) {
 
 size_t mds_capacity(const mdString str) {
     return str.capacity;
+}
+
+char mds_front (const mdString str) {
+    return str.data[0];
+}
+
+char mds_back  (const mdString str) {
+    return str.data[str.size-1];
+}
+
+int mds_sscanf(const mdString str, const char* format, ...) {
+    va_list args;
+    va_start(args, format);
+    int res = vsscanf(str.data, format, args);
+    va_end(args);
+    return res;
+}
+
+int mds_format(mdString* str, const char* format, ...) {
+    va_list args;
+    va_start(args, format);
+    int needed = vsnprintf(NULL, 0, format, args);
+    va_end(args);
+
+    if (needed <= 0) {
+        return -1;
+    }
+
+    size_t required = (size_t)needed;
+
+    if (required > str->capacity) {
+        char* buf = realloc(str->data, sizeof(char) * (required + 1));
+        if (!buf) return -1;
+        str->data = buf;
+        str->capacity = required;
+    }
+
+    va_start(args, format);
+    int res = vsnprintf(str->data, str->capacity + 1, format, args);
+    va_end(args);
+
+    str->size = (size_t)needed;
+
+    return res;
+}
+
+mdString mds_new_formatted(const char* format, ...) {
+    mdString str;
+
+    va_list args;
+    va_start(args, format);
+    int needed = vsnprintf(NULL, 0, format, args);
+    va_end(args);
+
+    if (needed <= 0) {
+        str.data     = NULL;
+        str.capacity = 0;
+        str.size     = 0;
+        return str;
+    }
+
+    str.data = malloc((needed + 1) * sizeof(char));
+    str.capacity = (size_t)needed;
+    str.size     = (size_t)needed;
+
+    va_start(args, format);
+    int res = vsnprintf(str.data, str.capacity + 1, format, args);
+    va_end(args);
+
+    if (res < 0) {
+        free(str.data);
+        str.data     = NULL;
+        str.capacity = 0;
+        str.size     = 0;
+    }
+
+    return str;
 }
 
 // TODO: put error checking
